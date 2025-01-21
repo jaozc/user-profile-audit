@@ -71,7 +71,7 @@ def test_create_audit_event():
         "timestamp": datetime.now().isoformat()
     }
     response = client.post("/api/v1/audit/events/", json=event)
-    assert response.status_code == 200
+    assert response.status_code == 201
     assert response.json()["user_id"] == event["user_id"]
     assert response.json()["action"] == event["action"]
 
