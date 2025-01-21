@@ -13,19 +13,20 @@ def test_read_root():
 def test_create_user_profile():
     profile_data = {
         "name": "John Doe",
-        "email": "john@example.com"
+        "email": "john.doe@example.com"
     }
     response = client.post("/api/v1/users/profile/", json=profile_data)
-    assert response.status_code == 200
+    assert response.status_code == 201
     assert response.json()["name"] == profile_data["name"]
     assert response.json()["email"] == profile_data["email"]
     assert "id" in response.json()
+    assert response.json()["id"] is not None
 
 def test_update_user_profile():
     # Primeiro cria um perfil
     profile_data = {
         "name": "Jane Doe",
-        "email": "jane@example.com"
+        "email": "jane.doe@example.com"
     }
     create_response = client.post("/api/v1/users/profile/", json=profile_data)
     user_id = create_response.json()["id"]
@@ -44,8 +45,8 @@ def test_update_user_profile():
     assert audit_response.status_code == 200
     events = audit_response.json()
     assert len(events) == 2  # Deve ter 2 eventos: criação e atualização
-    assert events[1]["action"] == "UPDATE_PROFILE"
-    assert "changes" in events[1]
+    assert events[-1]["action"] == "UPDATE_PROFILE"
+    assert "changes" in events[-1]
 
 def test_get_user_profile():
     # Primeiro cria um perfil
@@ -78,6 +79,7 @@ def test_get_audit_events():
     response = client.get("/api/v1/audit/events/")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+    assert len(response.json()) > 0
 
 def test_get_user_audit_events():
     # Primeiro, cria um evento para o usuário

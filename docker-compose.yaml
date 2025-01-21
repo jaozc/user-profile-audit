@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  api:
+    container_name: audit_api
+    build: ./fastapi
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./fastapi:/app
+    depends_on:
+      - db
+
+  # test:
+  #   build: ./fastapi
+  #   command: python -m pytest
+  #   volumes:
+  #     - ./fastapi:/app
+  #   depends_on:
+  #     - db
+
+  db:
+    image: postgres:13
+    container_name: postgres_container
+    environment:
+      POSTGRES_DB: audit_db
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql  # Mapeia o arquivo init.sql
+
+volumes:
+  postgres_data:

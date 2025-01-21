@@ -1,18 +1,16 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, status
 from app.models.audit_event import AuditEvent
 from app.models.user_profile import UserProfile, UserProfileCreate
 from typing import List
-from datetime import datetime
 import uuid
+from app.database import connect_to_db, close_db_connection
+import json
 
 router = APIRouter()
 
-# Simulando bancos de dados em memória
-audit_events_db = []
-user_profiles_db = {}
-
-@router.post("/users/profile/", response_model=UserProfile)
+@router.post("/users/profile/", response_model=UserProfile, status_code=status.HTTP_201_CREATED)
 async def create_user_profile(profile: UserProfileCreate):
+    connection = await connect_to_db()
     user_id = str(uuid.uuid4())
     new_profile = UserProfile(
         id=user_id,
@@ -20,7 +18,7 @@ async def create_user_profile(profile: UserProfileCreate):
         email=profile.email
     )
     
-    user_profiles_db[user_id] = new_profile
+    await connection.execute("INSERT INTO user_profiles (id, name, email) VALUES ($1, $2, $3)", user_id, profile.name, profile.email)
     
     # Registra evento de auditoria para criação de perfil
     audit_event = AuditEvent(
@@ -33,16 +31,28 @@ async def create_user_profile(profile: UserProfileCreate):
             "email": {"old": None, "new": profile.email}
         }
     )
-    audit_events_db.append(audit_event)
+    
+    # Converte o dicionário de mudanças para uma string JSON
+    changes_json = json.dumps(audit_event.changes)
+    
+    await connection.execute("INSERT INTO audit_events (user_id, action, resource, details, changes) VALUES ($1, $2, $3, $4, $5)", 
+                             user_id, audit_event.action, audit_event.resource, audit_event.details, changes_json)
+    
+    await close_db_connection(connection)
     
     return new_profile
 
 @router.put("/users/{user_id}/profile/", response_model=UserProfile)
 async def update_user_profile(user_id: str, profile: UserProfileCreate):
-    if user_id not in user_profiles_db:
+    connection = await connect_to_db()
+    
+    # Verifica se o usuário existe
+    row = await connection.fetchrow("SELECT * FROM user_profiles WHERE id = $1", user_id)
+    if row is None:
+        await close_db_connection(connection)
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
     
-    old_profile = user_profiles_db[user_id]
+    old_profile = UserProfile(id=row['id'], name=row['name'], email=row['email'])
     changes = {}
     
     # Detecta mudanças nos campos
@@ -52,12 +62,7 @@ async def update_user_profile(user_id: str, profile: UserProfileCreate):
         changes["email"] = {"old": old_profile.email, "new": profile.email}
     
     # Atualiza o perfil
-    updated_profile = UserProfile(
-        id=user_id,
-        name=profile.name,
-        email=profile.email
-    )
-    user_profiles_db[user_id] = updated_profile
+    await connection.execute("UPDATE user_profiles SET name = $1, email = $2 WHERE id = $3", profile.name, profile.email, user_id)
     
     # Registra evento de auditoria para atualização
     if changes:
@@ -68,27 +73,61 @@ async def update_user_profile(user_id: str, profile: UserProfileCreate):
             details="Perfil atualizado",
             changes=changes
         )
-        audit_events_db.append(audit_event)
+
+        changes_json = json.dumps(audit_event.changes)
+
+        await connection.execute("INSERT INTO audit_events (user_id, action, resource, details, changes) VALUES ($1, $2, $3, $4, $5)", 
+                                 user_id, audit_event.action, audit_event.resource, audit_event.details, changes_json)
     
-    return updated_profile
+    await close_db_connection(connection)
+    
+    return UserProfile(id=user_id, name=profile.name, email=profile.email)
 
 @router.get("/users/{user_id}/profile/", response_model=UserProfile)
 async def get_user_profile(user_id: str):
-    if user_id not in user_profiles_db:
+    connection = await connect_to_db()
+    
+    row = await connection.fetchrow("SELECT * FROM user_profiles WHERE id = $1", user_id)
+    await close_db_connection(connection)
+    
+    if row is None:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    return user_profiles_db[user_id]
+    
+    return UserProfile(id=row['id'], name=row['name'], email=row['email'])
+
+@router.get("/users/profile/", response_model=UserProfile)
+async def get_users_profiles():
+    connection = await connect_to_db()
+    
+    row = await connection.fetchrow("SELECT * FROM user_profiles ")
+    await close_db_connection(connection)
+    
+    if row is None:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    return UserProfile(id=row['id'], name=row['name'], email=row['email'])
 
 # Mantém os endpoints existentes de auditoria
 @router.post("/audit/events/", response_model=AuditEvent)
-async def create_audit_event(event: AuditEvent):
-    audit_events_db.append(event)
+async def create_audit_event(event: AuditEvent, status_code=status.HTTP_201_CREATED):
+    connection = await connect_to_db()
+    await connection.execute("INSERT INTO audit_events (user_id, action, resource, details, changes) VALUES ($1, $2, $3, $4, $5)", 
+                             event.user_id, event.action, event.resource, event.details, event.changes)
+    await close_db_connection(connection)
     return event
 
 @router.get("/audit/events/", response_model=List[AuditEvent])
 async def get_audit_events():
-    return audit_events_db
+    connection = await connect_to_db()
+    rows = await connection.fetch("SELECT * FROM audit_events")
+    await close_db_connection(connection)
+    
+    return [AuditEvent(**{**row, "changes": json.loads(row["changes"]) if row["changes"] else {}}) for row in rows]
 
 @router.get("/audit/events/{user_id}", response_model=List[AuditEvent])
 async def get_user_audit_events(user_id: str):
-    events = [event for event in audit_events_db if event.user_id == user_id]
-    return events
+    connection = await connect_to_db()
+    rows = await connection.fetch("SELECT * FROM audit_events WHERE user_id = $1", user_id)
+    await close_db_connection(connection)
+    
+    return [AuditEvent(**{**row, "changes": json.loads(row["changes"]) if row["changes"] else {}}) for row in rows]
