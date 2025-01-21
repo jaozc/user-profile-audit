@@ -55,7 +55,12 @@ async def update_user_profile(user_id: str, profile: UserProfileCreate):
         changes["email"] = {"old": old_profile.email, "new": profile.email}
     
     # Atualiza o perfil
-    updated_profile = await user_profile_repo.update(UserProfile(id=user_id, name=profile.name, email=profile.email))
+    updated_profile = await user_profile_repo.update(UserProfile(
+        id=user_id,
+        name=profile.name,
+        email=profile.email,
+        is_deleted=old_profile.is_deleted  # Include is_deleted from old_profile
+    ))
     
     # Registra evento de auditoria para atualização
     if changes:
@@ -86,6 +91,9 @@ async def get_user_profile(user_id: str):
     
     if user_profile is None:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    if user_profile.is_deleted:
+        raise HTTPException(status_code=404, detail="Usuário deletado")
     
     return user_profile
 
@@ -130,3 +138,58 @@ async def get_user_audit_events(user_id: str):
     await connection.close()  # Fechar a conexão após o uso
     
     return rows
+
+@router.delete("/users/{user_id}/profile/", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user_profile(user_id: str):
+    connection = await connect_to_db()
+    user_profile_repo = UserProfileRepository(connection)
+    
+    # Verifica se o usuário existe
+    old_profile = await user_profile_repo.get_by_id(user_id)
+    if old_profile is None or old_profile.is_deleted:
+        await connection.close()
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    # Realiza o soft delete
+    await user_profile_repo.soft_delete(user_id)
+
+    # Registra evento de auditoria para a exclusão
+    audit_event = AuditEvent(
+        user_id=user_id,
+        action="DELETE_PROFILE",
+        resource="user_profile",
+        details=f"Perfil deletado para {old_profile.name}",
+        changes={
+            "name": {"old": old_profile.name, "new": None},
+            "email": {"old": old_profile.email, "new": None}
+        }
+    )
+    
+    audit_event_repo = AuditEventRepository(connection)
+    await audit_event_repo.create(audit_event)
+
+    await connection.close()  # Fechar a conexão após o uso
+
+@router.get("/users/profiles/active/", response_model=List[UserProfile])
+async def get_active_user_profiles():
+    connection = await connect_to_db()
+    user_profile_repo = UserProfileRepository(connection)
+    
+    # Obtém todos os perfis de usuário ativos
+    active_profiles = await user_profile_repo.get_all_active()
+    
+    await connection.close()  # Fechar a conexão após o uso
+    
+    return active_profiles
+
+@router.get("/users/profiles/", response_model=List[UserProfile])
+async def get_all_user_profiles():
+    connection = await connect_to_db()
+    user_profile_repo = UserProfileRepository(connection)
+    
+    # Obtém todos os perfis de usuário
+    all_profiles = await user_profile_repo.get_all_inactive()
+    
+    await connection.close()  # Fechar a conexão após o uso
+    
+    return all_profiles

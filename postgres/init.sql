@@ -4,7 +4,8 @@
 CREATE TABLE IF NOT EXISTS user_profiles (
     id VARCHAR(255) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE
+    email VARCHAR(255) NOT NULL UNIQUE,
+    is_deleted BOOLEAN DEFAULT FALSE
 );
 
 -- Criação da tabela de eventos de auditoria

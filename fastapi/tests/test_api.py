@@ -10,7 +10,8 @@ def test_read_root():
     assert response.status_code == 200
     assert response.json() == {"message": "Bem-vindo à API de Auditoria de Usuários!"}
 
-def test_create_user_profile():
+@pytest.mark.asyncio
+async def test_create_user_profile(db_setup):
     profile_data = {
         "name": "John Doe",
         "email": "john.doe@example.com"
@@ -22,7 +23,8 @@ def test_create_user_profile():
     assert "id" in response.json()
     assert response.json()["id"] is not None
 
-def test_update_user_profile():
+@pytest.mark.asyncio
+async def test_update_user_profile(db_setup):
     # Primeiro cria um perfil
     profile_data = {
         "name": "Jane Doe",
@@ -48,7 +50,8 @@ def test_update_user_profile():
     assert events[-1]["action"] == "UPDATE_PROFILE"
     assert "changes" in events[-1]
 
-def test_get_user_profile():
+@pytest.mark.asyncio
+async def test_get_user_profile(db_setup):
     # Primeiro cria um perfil
     profile_data = {
         "name": "Test User",
@@ -62,7 +65,8 @@ def test_get_user_profile():
     assert get_response.status_code == 200
     assert get_response.json()["name"] == profile_data["name"]
 
-def test_create_audit_event():
+@pytest.mark.asyncio
+async def test_create_audit_event(db_setup):
     event = {
         "user_id": "user123",
         "action": "LOGIN",
@@ -75,13 +79,15 @@ def test_create_audit_event():
     assert response.json()["user_id"] == event["user_id"]
     assert response.json()["action"] == event["action"]
 
-def test_get_audit_events():
+@pytest.mark.asyncio
+async def test_get_audit_events(db_setup):
     response = client.get("/api/v1/audit/events/")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
     assert len(response.json()) > 0
 
-def test_get_user_audit_events():
+@pytest.mark.asyncio
+async def test_get_user_audit_events(db_setup):
     # Primeiro, cria um evento para o usuário
     event = {
         "user_id": "test_user",
@@ -98,3 +104,75 @@ def test_get_user_audit_events():
     assert isinstance(response.json(), list)
     assert len(response.json()) > 0
     assert response.json()[0]["user_id"] == "test_user"
+
+@pytest.mark.asyncio
+async def test_delete_user_profile(db_setup):
+    # Primeiro cria um perfil
+    profile_data = {
+        "name": "John Field",
+        "email": "john.field@example.com"
+    }
+    create_response = client.post("/api/v1/users/profile/", json=profile_data)
+    user_id = create_response.json()["id"]
+    
+    # Deleta o perfil
+    delete_response = client.delete(f"/api/v1/users/{user_id}/profile/")
+    assert delete_response.status_code == 204
+    
+    # Verifica se o perfil foi marcado como deletado
+    get_response = client.get(f"/api/v1/users/{user_id}/profile/")
+    assert get_response.status_code == 404  # O perfil não deve ser encontrado
+
+    # Verifica se o evento de auditoria foi criado
+    audit_response = client.get(f"/api/v1/audit/events/{user_id}")
+    assert audit_response.status_code == 200
+    events = audit_response.json()
+    assert len(events) > 0
+    assert events[-1]["action"] == "DELETE_PROFILE"
+    assert events[-1]["details"] == f"Perfil deletado para John Field"
+
+@pytest.mark.asyncio
+async def test_get_active_user_profiles(db_setup):
+    # Primeiro cria um perfil
+    profile_data = {
+        "name": "Active User",
+        "email": "active.user@example.com"
+    }
+    create_response = client.post("/api/v1/users/profile/", json=profile_data)
+    user_id = create_response.json()["id"]  # Armazena o user_id
+
+    # Deleta o perfil
+    delete_response = client.delete(f"/api/v1/users/{user_id}/profile/")
+    assert delete_response.status_code == 204
+
+    # Obtém perfis ativos
+    active_response = client.get("/api/v1/users/profiles/active/")
+    assert active_response.status_code == 200
+    active_profiles = active_response.json()
+    assert len(active_profiles) == 3  # Deve retornar apenas perfis não deletados
+
+@pytest.mark.asyncio
+async def test_get_all_user_profiles(db_setup):
+    # Obtém todos os perfis
+    all_response = client.get("/api/v1/users/profiles/")
+    assert all_response.status_code == 200
+    all_profiles = all_response.json()
+    assert isinstance(all_profiles, list)  # Deve retornar uma lista
+
+@pytest.mark.asyncio
+async def test_get_deleted_user_profile(db_setup):
+    # Primeiro cria um perfil
+    profile_data = {
+        "name": "Deleted User",
+        "email": "deleted.user@example.com"
+    }
+    create_response = client.post("/api/v1/users/profile/", json=profile_data)
+    user_id = create_response.json()["id"]
+
+    # Deleta o perfil
+    client.delete(f"/api/v1/users/{user_id}/profile/")
+
+    # Tenta obter o perfil deletado
+    deleted_response = client.get(f"/api/v1/users/{user_id}/profile/")
+    assert deleted_response.status_code == 404
+    assert deleted_response.json() == {"detail": "Usuário deletado"}
