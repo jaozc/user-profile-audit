@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS user_profiles (
 
 -- Criação da tabela de eventos de auditoria
 CREATE TABLE IF NOT EXISTS audit_events (
-    id SERIAL PRIMARY KEY,
+    id VARCHAR(255) PRIMARY KEY,
     user_id VARCHAR(255),
     action VARCHAR(255),
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
