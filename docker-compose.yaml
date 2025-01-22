@@ -11,14 +11,6 @@ services:
     depends_on:
       - db
 
-  # test:
-  #   build: ./fastapi
-  #   command: python -m pytest
-  #   volumes:
-  #     - ./fastapi:/app
-  #   depends_on:
-  #     - db
-
   db:
     image: postgres:13
     container_name: postgres_container
