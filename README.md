@@ -8,6 +8,8 @@ The User Profile Audit project is designed to provide a robust backend solution 
 - Audit logging for all actions performed on user profiles.
 - Retrieve active and deleted user profiles.
 - Rollback changes to user profiles based on audit events.
+- User authentication and authorization for secure access.
+- Comprehensive API documentation for easy integration.
 
 ## Getting Started
 
@@ -44,7 +46,6 @@ Once the application is running, you can access the API documentation at `http:/
 
 ## Running Tests
 To run the tests within the Docker container, use the following command:
-
 ```bash
 docker exec -it audit_api pytest tests -v
 ```
