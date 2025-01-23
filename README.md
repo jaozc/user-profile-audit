@@ -57,6 +57,22 @@ This command will:
 ## Usage
 Once the application is running, you can interact with the API using tools like Postman or directly through the Swagger UI provided at the `/docs` endpoint.
 
+## Default Authentication Credentials
+
+For testing purposes, the application includes default authentication credentials:
+
+- **Username**: `test`
+- **Password**: `secret`
+
+You can use these credentials to access the API and test the functionality without needing to create a new user profile.
+
+### Example Usage
+When making requests to the API, include the credentials in the Authorization header:
+
+```http
+Authorization: Basic test
+```
+
 ## Copyright
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
