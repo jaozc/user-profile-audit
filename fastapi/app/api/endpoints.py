@@ -13,7 +13,7 @@ router = APIRouter()
 # User Profile Management
 # ===========================
 
-@router.post("/users/profile/", response_model=UserProfile, status_code=status.HTTP_201_CREATED)
+@router.post("/users/profile/", response_model=UserProfile, status_code=status.HTTP_201_CREATED, tags=["User Profile"])
 async def create_user_profile(profile: UserProfileCreate):
     """
     Create a new user profile.
@@ -32,7 +32,7 @@ async def create_user_profile(profile: UserProfileCreate):
     await connection.close()  # Close the connection after use
     return new_profile
 
-@router.get("/users/profile/", response_model=List[UserProfile])
+@router.get("/users/profile/", response_model=List[UserProfile], tags=["User Profile"])
 async def get_users_profiles():
     """
     Retrieve all user profiles.
@@ -48,7 +48,7 @@ async def get_users_profiles():
     await connection.close()  # Close the connection after use
     return user_profiles
 
-@router.get("/users/{user_id}/profile/", response_model=UserProfile)
+@router.get("/users/{user_id}/profile/", response_model=UserProfile, tags=["User Profile"])
 async def get_user_profile(user_id: str):
     """
     Retrieve a user profile by its ID.
@@ -74,7 +74,7 @@ async def get_user_profile(user_id: str):
     
     return user_profile
 
-@router.put("/users/{user_id}/profile/", response_model=UserProfile)
+@router.put("/users/{user_id}/profile/", response_model=UserProfile, tags=["User Profile"])
 async def update_user_profile(user_id: str, profile: UserProfileCreate):
     """
     Update an existing user profile.
@@ -99,7 +99,7 @@ async def update_user_profile(user_id: str, profile: UserProfileCreate):
     await connection.close()  # Close the connection after use
     return updated_profile
 
-@router.delete("/users/{user_id}/profile/", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/users/{user_id}/profile/", status_code=status.HTTP_204_NO_CONTENT, tags=["User Profile"])
 async def delete_user_profile(user_id: str):
     """
     Delete a user profile by its ID.
@@ -114,7 +114,7 @@ async def delete_user_profile(user_id: str):
 
     await connection.close()  # Close the connection after use
 
-@router.get("/users/profiles/active/", response_model=List[UserProfile])
+@router.get("/users/profiles/active/", response_model=List[UserProfile], tags=["User Profile"])
 async def get_active_user_profiles():
     """
     Retrieve all active user profiles.
@@ -130,27 +130,12 @@ async def get_active_user_profiles():
     await connection.close()  # Close the connection after use
     return active_profiles
 
-@router.get("/users/profiles/", response_model=List[UserProfile])
-async def get_all_user_profiles():
-    """
-    Retrieve all user profiles, including deleted ones.
-
-    Returns:
-        List[UserProfile]: A list of all user profiles.
-    """
-    connection = await connect_to_db()
-    user_profile_repo = UserProfileRepository(connection)
-    
-    all_profiles = await user_profile_repo.get_all_inactive()  # Fetch all user profiles
-    
-    await connection.close()  # Close the connection after use
-    return all_profiles
 
 # ===========================
 # Audit Event Management
 # ===========================
 
-@router.get("/audit/events/", response_model=List[AuditEvent])
+@router.get("/audit/events/", response_model=List[AuditEvent], tags=["Audit Event"])
 async def get_audit_events():
     """
     Retrieve all audit events.
@@ -166,7 +151,7 @@ async def get_audit_events():
     
     return rows
 
-@router.get("/audit/events/{user_id}", response_model=List[AuditEvent])
+@router.get("/audit/events/{user_id}", response_model=List[AuditEvent], tags=["Audit Event"])
 async def get_user_audit_events(user_id: str):
     """
     Retrieve all audit events associated with a specific user ID.
@@ -185,7 +170,7 @@ async def get_user_audit_events(user_id: str):
     
     return rows
 
-@router.post("/audit/events/rollback/{audit_event_id}", status_code=status.HTTP_200_OK)
+@router.post("/audit/events/rollback/{audit_event_id}", status_code=status.HTTP_200_OK, tags=["Audit Event"])
 async def rollback_user_profile(audit_event_id: str):
     """
     Rollback a user profile to a previous state based on an audit event ID and create a new rollback audit event.
@@ -208,7 +193,7 @@ async def rollback_user_profile(audit_event_id: str):
     await connection.close()  # Close the connection after use
     return {"message": "Rollback successful"}
 
-@router.post("/users/{user_id}/profile/restore/", response_model=UserProfile)
+@router.post("/users/{user_id}/profile/restore/", response_model=UserProfile, tags=["User Profile"])
 async def restore_user_profile(user_id: str):
     """
     Restore a deleted user profile.

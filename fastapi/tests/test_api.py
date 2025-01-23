@@ -195,7 +195,7 @@ async def test_get_active_user_profiles(db_setup):
 @pytest.mark.asyncio
 async def test_get_all_user_profiles(db_setup):
     # Test retrieving all user profiles
-    all_response = client.get("/api/v1/users/profiles/")
+    all_response = client.get("/api/v1/users/profile/")
     assert all_response.status_code == 200  # Check if the retrieval was successful
     all_profiles = all_response.json()
     assert isinstance(all_profiles, list)  # Ensure the response is a list
