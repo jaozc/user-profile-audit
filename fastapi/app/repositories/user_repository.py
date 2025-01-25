@@ -23,7 +23,7 @@ class UserRepository:
         """Initializes the UserRepository class."""
         pass
 
-    def get_user(self, username: str) -> UserInDB:
+    async def get_user(self, username: str) -> UserInDB:
         """
         Retrieves a user from the fake database by username.
 

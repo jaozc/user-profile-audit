@@ -47,12 +47,11 @@ async def login_user(form_data: OAuth2PasswordRequestForm = Depends()):
         HTTPException: If the username or password is invalid.
     """
     user_repo = UserRepository()  # Create an instance of the user repository
-    user_dict = await user_repo.get_user(form_data.username)  # Fetch user data from the repository
+    user = await user_repo.get_user(form_data.username)  # Fetch user data from the repository
 
-    if not user_dict:
+    if not user:
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
-    user = UserInDB(**user_dict)  # Create an instance of UserInDB with the fetched user data
     hashed_password = auth.fake_hash_password(form_data.password)  # Hash the provided password for comparison
     
     # Check if the hashed password matches the stored hashed password
