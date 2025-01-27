@@ -70,7 +70,7 @@ You can use these credentials to access the API and test the functionality witho
 When making requests to the API, include the credentials in the Authorization header:
 
 ```http
-Authorization: Basic test
+Authorization: Bearer test
 ```
 
 ## Copyright
