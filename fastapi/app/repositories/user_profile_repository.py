@@ -192,8 +192,7 @@ class UserProfileRepository:
         
         if audit_event.action == AuditEventAction.DELETE_PROFILE:
             # Rollback the deletion
-            user_profile.is_deleted = False
-            await self.update(user_profile)  # Update the user profile to restore it
+            await self.restore(user_profile.id)  # Use restore to restore the user profile
             
             # Create an audit event for the rollback
             rollback_event = AuditEventBase(
@@ -210,20 +209,35 @@ class UserProfileRepository:
             await self.create_audit_event(rollback_event)  # Log the rollback event
         else:
             # Rollback all field changes
-            changes = audit_event.changes
-            for field_name, change in changes.items():
-                old_value = change['old']
-                setattr(user_profile, field_name, old_value)  # Set the old value for the specific field
+            changes = audit_event.changes  # Get the changes from the audit event
+            rollback_changes = {}  # Dictionary to store changes that will be recorded
             
-            await self.update(user_profile)  # Update the user profile in the database
+            for field_name, change in changes.items():  # Iterate over each field and its changes
+                old_value = change['old']  # Get the old value of the field
+                current_value = getattr(user_profile, field_name)  # Get the current value of the field
+                
+                # Check if the old value is different from the current value
+                if old_value != current_value:
+                    setattr(user_profile, field_name, old_value)  # Set the old value for the specific field
+                    rollback_changes[field_name] = {
+                        'old': current_value,
+                        'new': old_value
+                    }
             
-            # Create an audit event for the rollback
-            rollback_event = AuditEventBase(
-                user_id=user_profile.id,
-                action=AuditEventAction.ROLLBACK_EVENT,
-                timestamp=datetime.now(),
-                resource="user_profile",
-                details=f"Rolled back fields to previous values from audit event ID: {audit_event_id}",
-                changes={field_name: {'old': old_value, 'new': getattr(user_profile, field_name)} for field_name, change in changes.items()}
+            # Update the user profile in the database
+            await self.connection.execute(
+                "UPDATE user_profiles SET name = $1, email = $2 WHERE id = $3",
+                user_profile.name, user_profile.email, user_profile.id
             )
-            await self.create_audit_event(rollback_event)  # Log the rollback event
+            
+            # Create an audit event for the rollback if there are changes
+            if rollback_changes:
+                rollback_event = AuditEventBase(
+                    user_id=user_profile.id,
+                    action=AuditEventAction.ROLLBACK_EVENT,
+                    timestamp=datetime.now(),
+                    resource="user_profile",
+                    details=f"Rolled back fields to previous values from audit event ID: {audit_event_id}",
+                    changes=rollback_changes
+                )
+                await self.create_audit_event(rollback_event)  # Log the rollback event
